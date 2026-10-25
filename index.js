@@ -12,7 +12,14 @@ const { buildPrompt } = require('./lib/prompt');
 const { createFilter } = require('./lib/filter');
 
 const name = 'qqgm-meme';
-const inject = ['qqgmAiHooks'];
+/**
+ * 不写 inject。
+ *
+ * qqgmAiHooks 是主插件用 ctx.root.set() 挂上去的普通对象，不是 Koishi Service。
+ * inject 只解析 Service，写了反而让 Koishi 一直等一个不会出现的服务（配置页会显示未就绪）。
+ * 这里改成运行时探测，拿不到就等 ready 再试，最后才给一条明确日志。
+ */
+const inject = [];
 
 const Config = Schema.object({
   memeRoot: Schema.string().default('data/memes')
@@ -51,35 +58,72 @@ function apply(ctx, config) {
     return;
   }
 
-  const hooks = ctx.qqgmAiHooks
-    || (ctx.root && typeof ctx.root.get === 'function' ? ctx.root.get('qqgmAiHooks') : null)
-    || (ctx.nestimQqGroupManager && ctx.nestimQqGroupManager.aiHooks);
-  if (!hooks || typeof hooks.registerPromptSection !== 'function') {
-    logger.warn('未找到 qqgmAiHooks 扩展点（需要 @nestim/koishi-plugin-qq-group-manager >= 1.2.5），表情包插件不启用');
-    return;
+  // 只用 get() 读取：直接访问未注册属性会触发 Koishi 的 "not registered" 告警
+  const findHooks = () => {
+    const read = (target, key) => {
+      try {
+        return target && typeof target.get === 'function' ? target.get(key) : null;
+      } catch {
+        return null;
+      }
+    };
+    return read(ctx.root, 'qqgmAiHooks')
+      || read(ctx, 'qqgmAiHooks')
+      || (read(ctx.root, 'nestimQqGroupManager') || {}).aiHooks
+      || (read(ctx, 'nestimQqGroupManager') || {}).aiHooks
+      || null;
+  };
+
+  const offs = [];
+  let mounted = false;
+
+  const mount = (hooks) => {
+    mounted = true;
+    const prompt = buildPrompt(pack);
+    const { filter, afterReply } = createFilter(pack, config, logger);
+
+    offs.push(hooks.registerPromptSection(() => prompt));
+    offs.push(hooks.registerOutputFilter(filter));
+    offs.push(hooks.registerAfterReply(afterReply));
+
+    const total = pack.memes.length;
+    const packs = pack.packs.map((item) => `${item.name}(${item.count})`).join('、');
+    logger.info(`已加载表情包 ${pack.packs.length} 个图库 / ${total} 张：${packs}`);
+    logger.info(`[meme] 追加概率=${config.memeProbability}，间隔=${config.minIntervalSeconds}s，每小时上限=${config.maxPerHour}，去重窗口=${config.recentLimit ?? 8}`);
+    if (config.debug) logger.info(`[debug] root=${root} 情绪=${[...pack.tags.keys()].join(',')}`);
+  };
+
+  const tryMount = () => {
+    if (mounted) return true;
+    const hooks = findHooks();
+    if (!hooks || typeof hooks.registerPromptSection !== 'function') return false;
+    if (typeof hooks.registerAfterReply !== 'function') {
+      logger.warn('当前 qqgmAiHooks 不支持 registerAfterReply（需要主插件 >= 1.2.5），表情包插件不启用');
+      return false;
+    }
+    mount(hooks);
+    return true;
+  };
+
+  if (!tryMount()) {
+    ctx.on('ready', () => {
+      if (mounted) return;
+      if (!tryMount()) {
+        logger.warn(
+          '未找到 qqgmAiHooks 扩展点：请确认已启用并与本插件同时加载 @nestim/koishi-plugin-qq-group-manager（>= 1.2.5）',
+        );
+      }
+    });
   }
-  if (typeof hooks.registerAfterReply !== 'function') {
-    logger.warn('当前 qqgmAiHooks 不支持 registerAfterReply（需要主插件 >= 1.2.5），表情包插件不启用');
-    return;
-  }
-
-  const prompt = buildPrompt(pack);
-  const { filter, afterReply } = createFilter(pack, config, logger);
-
-  const offPrompt = hooks.registerPromptSection(() => prompt);
-  const offFilter = hooks.registerOutputFilter(filter);
-  const offAfter = hooks.registerAfterReply(afterReply);
-
-  const total = pack.memes.length;
-  const packs = pack.packs.map((item) => `${item.name}(${item.count})`).join('、');
-  logger.info(`已加载表情包 ${pack.packs.length} 个图库 / ${total} 张：${packs}`);
-  logger.info(`[meme] 追加概率=${config.memeProbability}，间隔=${config.minIntervalSeconds}s，每小时上限=${config.maxPerHour}，去重窗口=${config.recentLimit ?? 8}`);
-  if (config.debug) logger.info(`[debug] root=${root} 情绪=${[...pack.tags.keys()].join(',')}`);
 
   ctx.on('dispose', () => {
-    offPrompt();
-    offFilter();
-    offAfter();
+    for (const off of offs) {
+      try {
+        off();
+      } catch { /* 忽略 */ }
+    }
+    offs.length = 0;
+    mounted = false;
   });
 }
 

@@ -1,4 +1,4 @@
-import { test } from 'node:test';
+import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import path from 'node:path';
@@ -65,6 +65,7 @@ const baseConfig = {
 
 function makeCtx(registry) {
   const warnings = [];
+  const handlers = {};
   let dispose = null;
   const logger = {
     info() {},
@@ -78,10 +79,15 @@ function makeCtx(registry) {
       logger: () => logger,
       on(event, handler) {
         if (event === 'dispose') dispose = handler;
+        else handlers[event] = handler;
       },
       qqgmAiHooks: registry,
+      get(key) { return key === 'qqgmAiHooks' ? registry : undefined; },
     },
     warnings,
+    fireReady() {
+      if (handlers.ready) handlers.ready();
+    },
     runDispose() {
       if (dispose) dispose();
     },
@@ -90,7 +96,7 @@ function makeCtx(registry) {
 
 test('注册表情包提示词、过滤器与 afterReply', async () => {
   const registry = createFakeHooks();
-  const { ctx, runDispose } = makeCtx(registry);
+  const { ctx } = makeCtx(registry);
   plugin.apply(ctx, baseConfig);
 
   const counts = registry.counts;
@@ -102,13 +108,55 @@ test('注册表情包提示词、过滤器与 afterReply', async () => {
   assert.equal(sections.length, 1);
   assert.match(sections[0], /【表情包能力】/);
   assert.match(sections[0], /happy/);
-
-  runDispose();
-  assert.equal((await registry.collectSections({})).length, 0);
 });
 
-test('没有 qqgmAiHooks 时安全跳过', () => {
-  const { ctx, warnings } = makeCtx(undefined);
+test('dispose 后注销全部钩子', async () => {
+  const registry = createFakeHooks();
+  const { ctx, runDispose } = makeCtx(registry);
+  plugin.apply(ctx, baseConfig);
+  runDispose();
+  assert.equal(registry.counts.sections, 0);
+  assert.equal(registry.counts.filters, 0);
+  assert.equal(registry.counts.afters, 0);
+});
+
+test('没有 qqgmAiHooks 时安全跳过：ready 后才给出提示', () => {
+  const { ctx, warnings, fireReady } = makeCtx(undefined);
   assert.doesNotThrow(() => plugin.apply(ctx, baseConfig));
-  assert.ok(warnings.some((line) => /qqgmAiHooks/.test(line)));
+  assert.equal(warnings.length, 0, 'apply 阶段不应立即告警（主插件可能稍后挂载）');
+  fireReady();
+  assert.ok(warnings.some((line) => /qqgmAiHooks/.test(line)), 'ready 后应提示缺少扩展点');
+});
+
+test('主插件晚于本插件挂载时，ready 能补挂成功', async () => {
+  let registry;
+  const warnings = [];
+  const handlers = {};
+  const logger = { info() {}, warn: (m) => warnings.push(String(m)) };
+  const ctx = {
+    baseDir: FIXTURES,
+    logger: () => logger,
+    on(event, handler) {
+      handlers[event] = handler;
+    },
+    get(key) {
+      return key === 'qqgmAiHooks' ? registry : undefined;
+    },
+  };
+  plugin.apply(ctx, baseConfig);
+  assert.equal(warnings.length, 0);
+
+  // 模拟主插件此时才把扩展点挂上
+  registry = createFakeHooks();
+  handlers.ready();
+
+  const counts = registry.counts;
+  assert.equal(counts.sections, 1, 'ready 后应补挂提示词段');
+  assert.equal(counts.filters, 1);
+  assert.equal(counts.afters, 1);
+  assert.ok(!warnings.some((line) => /未找到/.test(line)));
+});
+
+test('inject 为空，不声明 Koishi 服务依赖', () => {
+  assert.deepEqual(plugin.inject, [], 'inject 应为空数组，避免 Koishi 等待不存在的服务');
 });

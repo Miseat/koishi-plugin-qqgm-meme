@@ -1,0 +1,28 @@
+{
+  "id": "fixture",
+  "name": "测试表情包",
+  "version": "1.0.0",
+  "memes": [
+    {
+      "path": "memes/happy/deyi.jpg",
+      "tag": "happy",
+      "file_hash": "hash-deyi",
+      "caption": "得意闭眼拳头，好耶，小鲸鱼娘很满意",
+      "keywords": "得意 好耶 满意 开心"
+    },
+    {
+      "path": "memes/angry/shengqi.jpg",
+      "tag": "angry",
+      "file_hash": "hash-shengqi",
+      "caption": "气鼓鼓叉腰，额头怒气符号，蒸汽直冒",
+      "keywords": "生气 愤怒 哼 叉腰"
+    },
+    {
+      "path": "memes/missing/nope.jpg",
+      "tag": "missing",
+      "file_hash": "hash-missing",
+      "caption": "不存在的图",
+      "keywords": "无"
+    }
+  ]
+}

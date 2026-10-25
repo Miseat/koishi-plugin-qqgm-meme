@@ -1,0 +1,46 @@
+{
+  "name": "@nestim/koishi-plugin-qqgm-meme",
+  "version": "1.0.0",
+  "description": "Koishi 表情包插件（依附 @nestim/koishi-plugin-qq-group-manager）：AI 用 [表情: 情绪] 表达想发哪类图，按概率从本地图库抽一张补在文字后面。",
+  "main": "index.js",
+  "files": [
+    "index.js",
+    "lib",
+    "README.md"
+  ],
+  "license": "MIT",
+  "keywords": [
+    "koishi",
+    "koishi-plugin",
+    "qq",
+    "meme",
+    "sticker",
+    "emoji",
+    "ai",
+    "qqgm"
+  ],
+  "peerDependencies": {
+    "koishi": "^4.18.7"
+  },
+  "koishi": {
+    "description": "表情包：AI 按情绪标签抽图，按概率补发",
+    "category": "manage",
+    "service": {
+      "required": [
+        "qqgmAiHooks"
+      ],
+      "optional": []
+    }
+  },
+  "scripts": {
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Miseat/koishi-plugin-qqgm-meme.git"
+  },
+  "homepage": "https://github.com/Miseat/koishi-plugin-qqgm-meme#readme",
+  "bugs": {
+    "url": "https://github.com/Miseat/koishi-plugin-qqgm-meme/issues"
+  }
+}

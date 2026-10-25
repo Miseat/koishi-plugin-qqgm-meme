@@ -1,0 +1,13 @@
+{
+  "id": "pack-b",
+  "name": "第二图库",
+  "memes": [
+    {
+      "path": "memes/happy/deyi.jpg",
+      "tag": "happy",
+      "file_hash": "hash-deyi",
+      "caption": "重复的得意",
+      "keywords": "得意"
+    }
+  ]
+}

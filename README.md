@@ -10,6 +10,7 @@ Koishi 表情包插件，配合 [`@nestim/koishi-plugin-qq-group-manager`](https
 | --- | --- |
 | [`@nestim/koishi-plugin-qq-group-manager`](https://github.com/Miseat/koishi-plugin-qq-group-manager) | **主插件**：群管、自动管控、AI 回复、记忆库、识图、定时提醒 |
 | [`@nestim/koishi-plugin-qqgm-chat-style`](https://github.com/Miseat/koishi-plugin-qqgm-chat-style) | 聊天风格：主风格 + 按概率叠加的追加风格 |
+| [`@nestim/koishi-plugin-qqgm-private`](https://github.com/Miseat/koishi-plugin-qqgm-private) | 私聊：AI 自动回复 + 定时主动私发 |
 | **`@nestim/koishi-plugin-qqgm-meme`** | 本插件：表情包 |
 
 三个包都依赖主插件暴露的 `qqgmAiHooks` 扩展点，可以一起装，也可以只装需要的。

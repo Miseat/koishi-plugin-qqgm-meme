@@ -6,7 +6,8 @@
   "files": [
     "index.js",
     "lib",
-    "README.md"
+    "README.md",
+    "CHANGELOG.md"
   ],
   "license": "MIT",
   "keywords": [
